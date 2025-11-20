@@ -44,6 +44,13 @@ def procesar():
         try:
             resultados = procesar_pedidos(filepath)
             
+            if not resultados.get('procesamiento_exitoso', False):
+                if resultados.get('errores') and isinstance(resultados['errores'], list):
+                    for error in resultados['errores']:
+                        if isinstance(error, str):
+                            flash(f'Error: {error}', 'error')
+                return redirect(url_for('index'))
+            
             archivos_generados = []
             archivos_disponibles = [
                 'PedidosValidados.xlsx',
@@ -51,6 +58,7 @@ def procesar():
                 'PedidosRegistradosSAG.xlsx',
                 'ReporteProcesados.xlsx',
                 'DashboardRPA.xlsx',
+                'ResumenCorreos.xlsx',
                 'LogCorreos.txt',
                 'graficos_dashboard.png'
             ]
@@ -59,6 +67,10 @@ def procesar():
                 ruta_completa = os.path.join(app.config['OUTPUT_FOLDER'], archivo)
                 if os.path.exists(ruta_completa):
                     archivos_generados.append(archivo)
+            
+            if len(archivos_generados) == 0:
+                flash('No se generaron archivos. Verifica que el archivo cargado tenga el formato correcto.', 'error')
+                return redirect(url_for('index'))
             
             return render_template('resultado.html', 
                                  estadisticas=resultados, 

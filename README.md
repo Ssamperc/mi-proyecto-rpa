@@ -108,6 +108,7 @@ Descarga los archivos generados:
 - **PedidosRegistradosSAG.xlsx**: Pedidos registrados en SAG
 - **ReporteProcesados.xlsx**: Reporte detallado
 - **DashboardRPA.xlsx**: Dashboard con KPIs
+- **ResumenCorreos.xlsx**: Resumen de notificaciones por correo
 - **LogCorreos.txt**: Log de notificaciones
 
 ## Archivo de Ejemplo
@@ -136,6 +137,7 @@ Se incluye `ejemplo_pedidos.xlsx` con datos de prueba que contiene:
 | PedidosRegistradosSAG.xlsx | Pedidos con estado de registro SAG |
 | ReporteProcesados.xlsx | Métricas y estadísticas del proceso |
 | DashboardRPA.xlsx | Dashboard con KPIs y formato profesional |
+| ResumenCorreos.xlsx | Resumen detallado de correos enviados y fallidos |
 | LogCorreos.txt | Registro de notificaciones enviadas |
 | graficos_dashboard.png | Gráficos visuales (pie/bar charts) |
 

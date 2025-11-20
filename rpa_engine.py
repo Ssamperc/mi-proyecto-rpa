@@ -28,8 +28,17 @@ def procesar_pedidos(ruta_archivo):
         'tasa_validacion': 0,
         'tasa_registro_sag': 0,
         'tiempo_procesamiento': '',
-        'errores': []
+        'errores': [],
+        'procesamiento_exitoso': False
     }
+    
+    output_dir = 'output'
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for filename in os.listdir(output_dir):
+        file_path = os.path.join(output_dir, filename)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
     
     try:
         if ruta_archivo.endswith('.csv'):
@@ -59,6 +68,9 @@ def procesar_pedidos(ruta_archivo):
             if pd.isna(row['ID_Pedido']) or str(row['ID_Pedido']).strip() == '':
                 errores_fila.append('ID_Pedido vacío')
             
+            if pd.isna(row['Fecha_Pedido']) or str(row['Fecha_Pedido']).strip() == '':
+                errores_fila.append('Fecha_Pedido vacía')
+            
             if pd.isna(row['Nombre_Cliente']) or str(row['Nombre_Cliente']).strip() == '':
                 errores_fila.append('Nombre_Cliente vacío')
             
@@ -71,12 +83,22 @@ def procesar_pedidos(ruta_archivo):
             if pd.isna(row['SKU']) or str(row['SKU']).strip() == '':
                 errores_fila.append('SKU vacío')
             
+            if pd.isna(row['Nombre_Producto']) or str(row['Nombre_Producto']).strip() == '':
+                errores_fila.append('Nombre_Producto vacío')
+            
             try:
                 cantidad = float(row['Cantidad'])
                 if cantidad <= 0:
                     errores_fila.append('Cantidad debe ser mayor a 0')
             except (ValueError, TypeError):
                 errores_fila.append('Cantidad no es numérica')
+            
+            try:
+                precio_unitario = float(row['Precio_Unitario'])
+                if precio_unitario <= 0:
+                    errores_fila.append('Precio_Unitario debe ser mayor a 0')
+            except (ValueError, TypeError):
+                errores_fila.append('Precio_Unitario no es numérico')
             
             try:
                 valor_total = float(row['Valor_Total'])
@@ -101,27 +123,27 @@ def procesar_pedidos(ruta_archivo):
         pedidos_validos = df[df['Estado_Validacion'] == 'Válido'].copy()
         pedidos_invalidos = df[df['Estado_Validacion'] == 'Inválido'].copy()
         
-        output_dir = 'output'
-        os.makedirs(output_dir, exist_ok=True)
+        if estadisticas['pedidos_validos'] == 0:
+            estadisticas['errores'].append('No hay pedidos válidos para procesar. Todos los pedidos tienen errores de validación.')
+            if len(pedidos_invalidos) > 0:
+                pedidos_invalidos.to_excel(f'{output_dir}/ErroresRPA.xlsx', index=False)
+            return estadisticas
         
         pedidos_validos.to_excel(f'{output_dir}/PedidosValidados.xlsx', index=False)
         
-        if len(pedidos_invalidos) > 0:
-            pedidos_invalidos.to_excel(f'{output_dir}/ErroresRPA.xlsx', index=False)
-        else:
-            wb_error = Workbook()
-            ws_error = wb_error.active
-            ws_error.append(['No se encontraron errores en el procesamiento'])
-            wb_error.save(f'{output_dir}/ErroresRPA.xlsx')
+        pedidos_invalidos.to_excel(f'{output_dir}/ErroresRPA.xlsx', index=False)
         
         pedidos_validos['Estado_Registro'] = 'Registrado'
         pedidos_validos['Fecha_Registro'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        if len(pedidos_validos) > 0:
+        if len(pedidos_validos) > 1:
             indice_fallido = random.randint(0, len(pedidos_validos) - 1)
             pedidos_validos.at[pedidos_validos.index[indice_fallido], 'Estado_Registro'] = 'Fallido'
             estadisticas['fallidos_sag'] = 1
             estadisticas['registrados_sag'] = len(pedidos_validos) - 1
+        else:
+            estadisticas['registrados_sag'] = len(pedidos_validos)
+            estadisticas['fallidos_sag'] = 0
         
         pedidos_validos.to_excel(f'{output_dir}/PedidosRegistradosSAG.xlsx', index=False)
         
@@ -146,6 +168,49 @@ def procesar_pedidos(ruta_archivo):
         
         with open(f'{output_dir}/LogCorreos.txt', 'w', encoding='utf-8') as f:
             f.writelines(log_correos)
+        
+        wb_correos = Workbook()
+        ws_correos = wb_correos.active
+        ws_correos.title = "Resumen de Correos"
+        
+        ws_correos['A1'] = 'RESUMEN DE NOTIFICACIONES POR CORREO'
+        ws_correos['A1'].font = Font(size=14, bold=True, color='FFFFFF')
+        ws_correos['A1'].fill = PatternFill(start_color='28A745', end_color='28A745', fill_type='solid')
+        ws_correos.merge_cells('A1:D1')
+        ws_correos['A1'].alignment = Alignment(horizontal='center', vertical='center')
+        
+        ws_correos['A3'] = 'ID Pedido'
+        ws_correos['B3'] = 'Destinatario'
+        ws_correos['C3'] = 'Estado Envío'
+        ws_correos['D3'] = 'Fecha Envío'
+        
+        for cell in ['A3', 'B3', 'C3', 'D3']:
+            ws_correos[cell].font = Font(bold=True, color='FFFFFF')
+            ws_correos[cell].fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+        
+        fila = 4
+        for idx, row in pedidos_validos.iterrows():
+            estado_envio = 'ENVIADO' if row['Estado_Registro'] == 'Registrado' else 'FALLIDO'
+            ws_correos[f'A{fila}'] = row['ID_Pedido']
+            ws_correos[f'B{fila}'] = row['Correo_Cliente']
+            ws_correos[f'C{fila}'] = estado_envio
+            ws_correos[f'D{fila}'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            if estado_envio == 'ENVIADO':
+                ws_correos[f'C{fila}'].fill = PatternFill(start_color='28A745', end_color='28A745', fill_type='solid')
+                ws_correos[f'C{fila}'].font = Font(color='FFFFFF', bold=True)
+            else:
+                ws_correos[f'C{fila}'].fill = PatternFill(start_color='DC3545', end_color='DC3545', fill_type='solid')
+                ws_correos[f'C{fila}'].font = Font(color='FFFFFF', bold=True)
+            
+            fila += 1
+        
+        ws_correos.column_dimensions['A'].width = 15
+        ws_correos.column_dimensions['B'].width = 30
+        ws_correos.column_dimensions['C'].width = 15
+        ws_correos.column_dimensions['D'].width = 20
+        
+        wb_correos.save(f'{output_dir}/ResumenCorreos.xlsx')
         
         wb_reporte = Workbook()
         ws_reporte = wb_reporte.active
@@ -270,8 +335,39 @@ def procesar_pedidos(ruta_archivo):
         
         estadisticas['errores'] = errores_detallados
         
+        archivos_requeridos = [
+            'PedidosValidados.xlsx',
+            'ErroresRPA.xlsx',
+            'PedidosRegistradosSAG.xlsx',
+            'ReporteProcesados.xlsx',
+            'DashboardRPA.xlsx',
+            'ResumenCorreos.xlsx',
+            'LogCorreos.txt',
+            'graficos_dashboard.png'
+        ]
+        
+        archivos_faltantes = []
+        for archivo in archivos_requeridos:
+            ruta_completa = os.path.join(output_dir, archivo)
+            if not os.path.exists(ruta_completa):
+                archivos_faltantes.append(archivo)
+        
+        if archivos_faltantes:
+            estadisticas['errores'].append(f'Archivos no generados correctamente: {", ".join(archivos_faltantes)}')
+            for filename in os.listdir(output_dir):
+                file_path = os.path.join(output_dir, filename)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            return estadisticas
+        
+        estadisticas['procesamiento_exitoso'] = True
+        
         return estadisticas
         
     except Exception as e:
         estadisticas['errores'].append(f'Error general: {str(e)}')
+        for filename in os.listdir(output_dir):
+            file_path = os.path.join(output_dir, filename)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
         return estadisticas
