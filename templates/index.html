@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema RPA - Natural Conexión</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 0;
+        }
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header-section {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header-section h1 {
+            color: #667eea;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .header-section p {
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+        .upload-section {
+            background: #f8f9fa;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-section:hover {
+            background: #e7f1ff;
+            border-color: #764ba2;
+        }
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        .btn-procesar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 50px;
+            color: white;
+            transition: all 0.3s ease;
+            margin-top: 30px;
+        }
+        .btn-procesar:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        .btn-procesar:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .info-box {
+            background: #e7f1ff;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        .info-box h5 {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .info-box ul {
+            margin-bottom: 0;
+        }
+        .file-name {
+            font-weight: 600;
+            color: #28a745;
+            margin-top: 15px;
+            display: none;
+        }
+        .alert {
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-card">
+            <div class="header-section">
+                <h1><i class="bi bi-robot"></i> Sistema RPA</h1>
+                <p>Natural Conexión - Automatización de Procesamiento de Pedidos</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="/procesar" enctype="multipart/form-data" id="uploadForm">
+                <div class="upload-section" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">
+                        <i class="bi bi-cloud-upload"></i>
+                    </div>
+                    <h4>Selecciona o arrastra un archivo aquí</h4>
+                    <p class="text-muted">Archivos permitidos: Excel (.xlsx, .xls) o CSV (.csv)</p>
+                    <input type="file" class="form-control d-none" id="fileInput" name="archivo" 
+                           accept=".xlsx,.xls,.csv" required onchange="updateFileName(this)">
+                    <div class="file-name" id="fileName"></div>
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-procesar" id="btnProcesar" disabled>
+                        <i class="bi bi-gear-fill"></i> Procesar Pedidos
+                    </button>
+                </div>
+            </form>
+
+            <div class="info-box">
+                <h5><i class="bi bi-info-circle"></i> Columnas requeridas en el archivo:</h5>
+                <ul>
+                    <li><strong>ID_Pedido</strong> - Identificador único del pedido</li>
+                    <li><strong>Fecha_Pedido</strong> - Fecha de realización del pedido</li>
+                    <li><strong>Nombre_Cliente</strong> - Nombre completo del cliente</li>
+                    <li><strong>Correo_Cliente</strong> - Email válido del cliente</li>
+                    <li><strong>Direccion_Envio</strong> - Dirección de entrega</li>
+                    <li><strong>SKU</strong> - Código del producto</li>
+                    <li><strong>Nombre_Producto</strong> - Nombre del producto</li>
+                    <li><strong>Cantidad</strong> - Cantidad ordenada (numérico)</li>
+                    <li><strong>Precio_Unitario</strong> - Precio por unidad (numérico)</li>
+                    <li><strong>Valor_Total</strong> - Total del pedido (numérico)</li>
+                </ul>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="/limpiar" class="btn btn-outline-secondary" onclick="return confirm('¿Deseas limpiar todos los archivos procesados?')">
+                    <i class="bi bi-trash"></i> Limpiar Archivos
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateFileName(input) {
+            const fileName = document.getElementById('fileName');
+            const btnProcesar = document.getElementById('btnProcesar');
+            
+            if (input.files && input.files[0]) {
+                fileName.textContent = '📄 Archivo seleccionado: ' + input.files[0].name;
+                fileName.style.display = 'block';
+                btnProcesar.disabled = false;
+            } else {
+                fileName.style.display = 'none';
+                btnProcesar.disabled = true;
+            }
+        }
+
+        const uploadSection = document.querySelector('.upload-section');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.style.borderColor = '#764ba2';
+                uploadSection.style.background = '#e7f1ff';
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadSection.addEventListener(eventName, () => {
+                uploadSection.style.borderColor = '#667eea';
+                uploadSection.style.background = '#f8f9fa';
+            });
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            const fileInput = document.getElementById('fileInput');
+            fileInput.files = files;
+            updateFileName(fileInput);
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            document.getElementById('btnProcesar').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+            document.getElementById('btnProcesar').disabled = true;
+        });
+    </script>
+</body>
+</html>
